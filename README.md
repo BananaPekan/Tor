@@ -7,3 +7,5 @@ Important ToDos:
 - 
 - Finish V3 onion services.
 - Prevent DESTROY cells from causing unexpected behaviour to the entire client.
+
+The client is also full of println calls since it's mostly the easiest way to debug things, so if you're crazy enough to use it in an actual project, make sure to remove them.

@@ -110,7 +110,7 @@ public class Directory extends Guard {
             }
             start++;
         }
-//        directory-footer
+        // Could read until directory-footer, but currently not doing so.
     }
 
     public void readConsensus(String path) {
@@ -124,10 +124,7 @@ public class Directory extends Guard {
     public void test(String hs) throws IOException {
         directoryConnect();
 
-//        GET /tor/status-vote/current/consensus/D586D1+14C131+E8A9C4+ED03BB+0232AF+49015F+EFCBE7+23D15D+27102B.z HTTP/1.0\r\nX-Or-Diff-From-Consensus: 140de8f72115eee13caba646a221b16eed7755be2ab693bc821524158f389932
-//        String httpRequest = "GET /tor/server/fp/" + fingerprint +" HTTP/1.0\r\n\r\nHost: " + host + "\r\n\r\n";
         String httpRequest = "GET /tor/hs/3/" + hs + " HTTP/1.0\r\n\r\n";
-//        String httpRequest = "GET /tor/status-vote/current/consensus.z HTTP/1.0\r\n\r\n";
 
         int circuitId = directoryCircuit.getCircuitId();
         short streamId = directoryCircuit.createNewDirStream();
@@ -211,9 +208,9 @@ public class Directory extends Guard {
         }
         else {
             System.out.println("Consensus.");
-//            Get current random value
+            // Get current random value
             String consensus = byteArrayOutputStream.toString();
-            String sharedRandValue = consensus.split("shared-rand-previous-value ")[1].split("\n")[0];
+            String sharedRandValue = consensus.split("shared-rand-current-value ")[1].split("\n")[0];
             sharedRandValue = sharedRandValue.split(" ")[1].strip();
             this.sharedRandValue = Base64.getDecoder().decode(sharedRandValue);
 
@@ -315,8 +312,7 @@ public class Directory extends Guard {
     }
 
     public static byte[] getIntervalNum() {
-//        long seconds = Instant.parse("2025-02-18T16:00:00.00Z").getEpochSecond();
-        long seconds = Instant.now().getEpochSecond() - (24 * 60 * 60);
+        long seconds = Instant.now().getEpochSecond();
         long minutes = seconds / 60;
         minutes -= 12 * 60;
         minutes /= 1440;
