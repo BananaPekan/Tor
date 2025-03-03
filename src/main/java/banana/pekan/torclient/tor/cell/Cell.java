@@ -1,6 +1,5 @@
 package banana.pekan.torclient.tor.cell;
 
-import banana.pekan.torclient.tor.Relay;
 import banana.pekan.torclient.tor.cell.cells.*;
 import banana.pekan.torclient.tor.cell.cells.relay.RelayCell;
 
@@ -9,7 +8,6 @@ import java.io.InputStream;
 import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.ArrayList;
 import java.util.Arrays;
 
 public abstract class Cell {

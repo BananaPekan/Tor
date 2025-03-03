@@ -2,6 +2,7 @@ package banana.pekan.torclient.tor.directory;
 
 import banana.pekan.torclient.tor.crypto.Cryptography;
 import org.bouncycastle.crypto.digests.SHAKEDigest;
+import org.bouncycastle.util.encoders.Hex;
 
 import javax.crypto.Cipher;
 import javax.crypto.NoSuchPaddingException;
@@ -12,6 +13,7 @@ import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.Base64;
 
 public class HSDescriptor {
@@ -30,6 +32,8 @@ public class HSDescriptor {
     byte[] hsPublicKey;
     byte[] hsBlindedPublicKey;
 
+    ArrayList<RelayProperties> introductionPoints = new ArrayList<>();
+
     public HSDescriptor(byte[] superencrypted, long revision, byte[] hsPublicKey, byte[] hsBlindedPublicKey) {
         this.revision = revision;
         this.hsPublicKey = hsPublicKey;
@@ -44,10 +48,58 @@ public class HSDescriptor {
             // (Note: since the client doesn't support restricted discovery at the moment, descriptor cookie is left blank)
             // STRING_CONSTANT = "hsdir-encrypted-data"
             byte[] decrypted = decrypt(encrypted, hsBlindedPublicKey, "hsdir-encrypted-data");
-            System.out.println(new String(decrypted));
+            String[] lines = new String(decrypted).split("\n");
+
+            for (int i = 0; i < lines.length; i++) {
+                String line = lines[i];
+                if (line.startsWith("introduction-point")) {
+                    byte[] fingerprint = null;
+                    byte[] ed25519Id = null;
+                    String host = null;
+                    int port = -1;
+                    byte[] ipv6host = null;
+                    int ipv6port = -1;
+
+                    byte[] introPoint = Base64.getDecoder().decode(line.split(" ")[1]);
+                    int lsTypes = introPoint[0];
+                    int index = 0;
+                    for (int j = 0; j < lsTypes; j++) {
+                        index++;
+                        int type = Byte.toUnsignedInt(introPoint[index++]);
+                        int size = Byte.toUnsignedInt(introPoint[index]);
+                        byte[] id = new byte[size];
+                        System.arraycopy(introPoint, index + 1, id, 0, size);
+                        index += size;
+                        if (type == 0) {
+                            int[] idInt = new int[size];
+                            for (int k = 0; k < size; k++) {
+                                idInt[k] = Byte.toUnsignedInt(introPoint[index + 1 + k]);
+                            }
+                            host = idInt[0] + "." + idInt[1] + "." + idInt[2] + "." + idInt[3];
+                            port = (idInt[4] << 8) |  idInt[5];
+                        }
+                        else if (type == 1) {
+                            ipv6host = new byte[16];
+                            System.arraycopy(id, 0, ipv6host, 0, 16);
+                            ipv6port = (Byte.toUnsignedInt(id[id.length - 2]) << 8) | Byte.toUnsignedInt(id[id.length - 1]);
+                        }
+                        else if (type == 2) fingerprint = id;
+                        else if (type == 3) ed25519Id = id;
+                    }
+
+                    byte[] ntorOnionKey = Base64.getDecoder().decode(lines[++i].split(" ")[2]);
+
+                    introductionPoints.add(new RelayProperties(null, host, port, fingerprint, ntorOnionKey, ed25519Id, ipv6host, ipv6port));
+                }
+            }
+
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public ArrayList<RelayProperties> getIntroductionPoints() {
+        return introductionPoints;
     }
 
     private static byte[] getCredential(byte[] hsPublicKey) {
@@ -86,9 +138,9 @@ public class HSDescriptor {
         shakeDigest.update(salt, 0, salt.length);
         shakeDigest.update(STRING_CONSTANT.getBytes(), 0, STRING_CONSTANT.length());
 
-//       SECRET_KEY = first S_KEY_LEN bytes of keys
-//       SECRET_IV  = next S_IV_LEN bytes of keys
-//       MAC_KEY    = last MAC_KEY_LEN bytes of keys
+        // SECRET_KEY = first S_KEY_LEN bytes of keys
+        // SECRET_IV  = next S_IV_LEN bytes of keys
+        // MAC_KEY    = last MAC_KEY_LEN bytes of keys
         byte[] keys = new byte[Cryptography.MAC_KEY_LENGTH + Cryptography.CIPHER_KEY_LENGTH + Cryptography.IV_LENGTH];
         shakeDigest.doOutput(keys, 0, keys.length);
 

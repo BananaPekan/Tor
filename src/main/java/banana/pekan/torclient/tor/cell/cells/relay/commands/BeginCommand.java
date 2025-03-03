@@ -2,7 +2,6 @@ package banana.pekan.torclient.tor.cell.cells.relay.commands;
 
 import banana.pekan.torclient.tor.cell.cells.relay.RelayCell;
 
-import java.nio.Buffer;
 import java.nio.ByteBuffer;
 
 public class BeginCommand extends RelayCell {

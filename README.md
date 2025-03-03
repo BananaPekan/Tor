@@ -8,8 +8,9 @@ Important ToDos:
 - Finish V3 onion services.
 - Prevent DESTROY cells from causing unexpected behaviour to the entire client.
 
-**NOTE: At the moment (And probably even when the project is finished, also to a lesser extent) the client does NOT completely conform to the tor spec.**
-For this exact reason, it should not be used in actual projects, at least at the moment, even for connecting to regular services (Not HS), and probably not securely to HSs when it's finished.
+**NOTE: At the moment (And probably even when the project is finished, also to a lesser extent) the client does NOT completely conform to the security rules laid out in the tor spec.**
+**This project is also not an official tor client and so any change made to the official tor protocol might break functionality.**
+For these reasons, it should not be used in actual projects, at least at the moment, even for connecting to regular services (Not HS), and probably not securely to HSs when it's finished.
 
 The client is also full of println calls since it's mostly the easiest way to debug things, so if you're crazy enough to use it in an actual project, make sure to remove them.
 

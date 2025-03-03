@@ -2,8 +2,6 @@ package banana.pekan.torclient.tor.cell.cells;
 
 import banana.pekan.torclient.tor.cell.Cell;
 
-import java.util.Arrays;
-
 public class CreatedFastCell extends Cell {
 
     byte[] keyMaterial;

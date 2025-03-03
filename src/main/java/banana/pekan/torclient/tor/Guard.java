@@ -3,8 +3,6 @@ package banana.pekan.torclient.tor;
 import banana.pekan.torclient.tor.cell.Cell;
 import banana.pekan.torclient.tor.cell.cells.*;
 import banana.pekan.torclient.tor.cell.cells.relay.RelayCell;
-import banana.pekan.torclient.tor.cell.cells.relay.commands.DataCommand;
-import banana.pekan.torclient.tor.crypto.Cryptography;
 import banana.pekan.torclient.tor.crypto.Keys;
 import banana.pekan.torclient.tor.directory.RelayProperties;
 
@@ -21,8 +19,6 @@ import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.util.Arrays;
-import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 

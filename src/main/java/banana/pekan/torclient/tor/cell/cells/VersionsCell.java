@@ -2,7 +2,6 @@ package banana.pekan.torclient.tor.cell.cells;
 
 import banana.pekan.torclient.tor.cell.Cell;
 
-import java.io.InputStream;
 import java.util.Arrays;
 
 public class VersionsCell extends Cell {

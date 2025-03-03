@@ -4,7 +4,6 @@ import banana.pekan.torclient.tor.cell.Cell;
 
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import java.util.Arrays;
 
 public class CreateFastCell extends Cell {
 

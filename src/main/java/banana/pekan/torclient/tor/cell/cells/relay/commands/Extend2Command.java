@@ -9,7 +9,6 @@ import org.bouncycastle.crypto.params.X25519PublicKeyParameters;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import java.util.stream.Collectors;
 
 public class Extend2Command extends RelayCell {
 

@@ -13,7 +13,8 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
-import static banana.pekan.torclient.tor.crypto.Cryptography.*;
+import static banana.pekan.torclient.tor.crypto.Cryptography.KEY_LENGTH;
+import static banana.pekan.torclient.tor.crypto.Cryptography.SHA1_LENGTH;
 
 public class Handshake {
 

@@ -1,9 +1,7 @@
 package banana.pekan.torclient.tor.crypto;
 
 import javax.crypto.Cipher;
-import javax.crypto.NoSuchPaddingException;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 
 public record Keys(MessageDigest digestForward, MessageDigest digestBackward, Cipher encryptionKey, Cipher decryptionKey, byte[] KH) {
 

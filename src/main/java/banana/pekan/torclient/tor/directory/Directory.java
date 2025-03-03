@@ -12,14 +12,13 @@ import banana.pekan.torclient.tor.cell.cells.relay.commands.DataCommand;
 import banana.pekan.torclient.tor.cell.cells.relay.commands.EndCommand;
 import banana.pekan.torclient.tor.crypto.Cryptography;
 import banana.pekan.torclient.tor.crypto.Keys;
-import org.bouncycastle.util.encoders.Hex;
 
-import java.io.*;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.zip.DataFormatException;

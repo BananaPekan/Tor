@@ -1,6 +1,5 @@
 package banana.pekan.torclient.tor.cell.cells.relay.commands;
 
-import banana.pekan.torclient.tor.Relay;
 import banana.pekan.torclient.tor.cell.cells.relay.RelayCell;
 
 public class DataCommand extends RelayCell {

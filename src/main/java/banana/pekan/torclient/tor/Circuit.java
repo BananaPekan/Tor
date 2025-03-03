@@ -10,7 +10,6 @@ import banana.pekan.torclient.tor.directory.RelayProperties;
 import javax.crypto.Cipher;
 import java.security.MessageDigest;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;

@@ -1,6 +1,5 @@
 package banana.pekan.torclient.tor.cell.cells.relay;
 
-import banana.pekan.torclient.tor.Relay;
 import banana.pekan.torclient.tor.cell.Cell;
 import banana.pekan.torclient.tor.cell.cells.relay.commands.*;
 
