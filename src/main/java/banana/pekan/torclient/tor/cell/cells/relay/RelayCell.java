@@ -31,6 +31,7 @@ public abstract class RelayCell extends Cell {
     public static final byte EXTEND2 = 14;
     public static final byte EXTENDED2 = 15;
     public static final byte BEGIN = 1;
+    public static final byte INTRODUCE1 = 34;
     public static final byte ANY = -1;
 
     byte relayCommand;

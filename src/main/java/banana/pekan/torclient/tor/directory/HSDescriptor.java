@@ -1,8 +1,8 @@
 package banana.pekan.torclient.tor.directory;
 
 import banana.pekan.torclient.tor.crypto.Cryptography;
+import banana.pekan.torclient.tor.crypto.EdCertificate;
 import org.bouncycastle.crypto.digests.SHAKEDigest;
-import org.bouncycastle.util.encoders.Hex;
 
 import javax.crypto.Cipher;
 import javax.crypto.NoSuchPaddingException;
@@ -49,6 +49,7 @@ public class HSDescriptor {
             // STRING_CONSTANT = "hsdir-encrypted-data"
             byte[] decrypted = decrypt(encrypted, hsBlindedPublicKey, "hsdir-encrypted-data");
             String[] lines = new String(decrypted).split("\n");
+            System.out.println(new String(decrypted));
 
             for (int i = 0; i < lines.length; i++) {
                 String line = lines[i];
@@ -88,8 +89,25 @@ public class HSDescriptor {
                     }
 
                     byte[] ntorOnionKey = Base64.getDecoder().decode(lines[++i].split(" ")[2]);
+                    StringBuilder authKeyCert = null;
+                    while (!lines[i++].contains("-----END ED25519 CERT-----")) {
+                        String keyLine = lines[i];
+                        if (authKeyCert == null) {
+                            if (keyLine.startsWith("-----BEGIN ED25519 CERT-----")) {
+                                authKeyCert = new StringBuilder("-----BEGIN ED25519 CERT-----\n");
+                            }
+                            continue;
+                        }
+                        authKeyCert.append(keyLine).append('\n');
+                    }
 
-                    introductionPoints.add(new RelayProperties(null, host, port, fingerprint, ntorOnionKey, ed25519Id, ipv6host, ipv6port));
+                    if (authKeyCert == null) throw new RuntimeException("Couldn't parse the HiddenService's introduction point auth key certificate.");
+
+                    EdCertificate certificate = EdCertificate.parseEd25519Cert(authKeyCert.toString());
+                    EdCertificate.Extension extension = certificate.extensions()[0];
+                    byte[] authKey = extension.data();
+
+                    introductionPoints.add(new RelayProperties(null, host, port, fingerprint, ntorOnionKey, ed25519Id, ipv6host, ipv6port, new Object[]{authKey}));
                 }
             }
 
