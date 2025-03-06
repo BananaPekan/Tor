@@ -15,6 +15,7 @@ import banana.pekan.torclient.tor.crypto.Keys;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.Inet6Address;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
@@ -366,7 +367,16 @@ public class Directory extends Guard {
 
         byte[] ntorOnionKey = Base64.getDecoder().decode(descriptor.split("\nntor-onion-key ")[1].split("\n")[0].strip());
 
-        return new RelayProperties(info[0], info[1], Integer.parseInt(info[2]), fingerprint, ntorOnionKey);
+        String ipv6 = descriptor.contains("or-address \\[") ? descriptor.split("\nor-address \\[")[1].split("\n")[0].strip() : null;
+        int ipv6port = -1;
+        byte[] ipv6host = null;
+
+        if (ipv6 != null) {
+            ipv6port = Integer.parseInt(ipv6.split("]:")[1]);
+            ipv6host = Inet6Address.getByName(ipv6.split("]:")[0]).getAddress();
+        }
+
+        return new RelayProperties(info[0], info[1], Integer.parseInt(info[2]), fingerprint, ntorOnionKey, ipv6host, ipv6port);
     }
 
 }

@@ -107,7 +107,12 @@ public class HSDescriptor {
                     EdCertificate.Extension extension = certificate.extensions()[0];
                     byte[] authKey = extension.data();
 
-                    introductionPoints.add(new RelayProperties(null, host, port, fingerprint, ntorOnionKey, ed25519Id, ipv6host, ipv6port, new Object[]{authKey}));
+                    byte[] hsNtorOnionKey = Base64.getDecoder().decode(lines[i].split("enc-key ntor ")[1]);
+
+                    byte[] credential = getCredential(hsPublicKey);
+                    byte[] subcredential = deriveSubCredential(credential, hsBlindedPublicKey);
+
+                    introductionPoints.add(new RelayProperties(null, host, port, fingerprint, ntorOnionKey, ed25519Id, ipv6host, ipv6port, new Object[]{authKey, hsNtorOnionKey, subcredential}));
                 }
             }
 

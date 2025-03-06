@@ -23,6 +23,8 @@ public abstract class RelayCell extends Cell {
         }
     }
 
+    public record Extension(byte type, byte[] data) {}
+
     protected static final byte BEGIN_DIR = 13;
     public static final byte CONNECTED = 4;
     public static final byte DATA = 2;
@@ -32,6 +34,9 @@ public abstract class RelayCell extends Cell {
     public static final byte EXTENDED2 = 15;
     public static final byte BEGIN = 1;
     public static final byte INTRODUCE1 = 34;
+    public static final byte ESTABLISH_RENDEZVOUS = 33;
+    public static final byte RENDEZVOUS_ESTABLISHED = 39;
+    public static final byte INTRODUCE_ACK = 40;
     public static final byte ANY = -1;
 
     byte relayCommand;
@@ -120,6 +125,22 @@ public abstract class RelayCell extends Cell {
                     }
                 }
                 return new SendMeCommand(circuitId, version, streamId);
+            case RENDEZVOUS_ESTABLISHED:
+                return new RendezvousEstablished(circuitId, version);
+            case INTRODUCE_ACK:
+                ByteBuffer dataBuffer = ByteBuffer.wrap(body);
+                short status = dataBuffer.getShort();
+                Extension[] extensions = new Extension[dataBuffer.get()];
+
+                for (int i = 0; i < extensions.length; i++) {
+                    byte type = dataBuffer.get();
+                    byte length = dataBuffer.get();
+                    byte[] data = new byte[length];
+                    dataBuffer.get(data);
+                    extensions[i] = new Extension(type, data);
+                }
+
+                return new IntroduceAckCommand(circuitId, version, status, extensions);
             default:
                 throw new Error("Encountered an unknown relay command: " + command);
         }

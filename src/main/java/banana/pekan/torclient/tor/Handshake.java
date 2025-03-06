@@ -10,6 +10,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.ByteBuffer;
 import java.security.InvalidKeyException;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
@@ -19,6 +20,7 @@ import static banana.pekan.torclient.tor.crypto.Cryptography.SHA1_LENGTH;
 public class Handshake {
 
     public static final byte[] NTOR_PROTOID = "ntor-curve25519-sha256-1".getBytes();
+    public static final byte[] HS_NTOR_PROTOID = "tor-hs-ntor-curve25519-sha3-256-1".getBytes();
 
     private static byte[] createNtorHandshake(RelayProperties properties, X25519PublicKeyParameters publicKey) {
         ByteBuffer buffer = ByteBuffer.allocate(84);
@@ -43,6 +45,19 @@ public class Handshake {
         byte[] secret = new byte[32];
         privateKey.generateSecret(publicKey, secret, 0);
         return secret;
+    }
+
+    public static byte[] hsMac(byte[] key, byte[] data) {
+        try {
+            MessageDigest sha3_256 = MessageDigest.getInstance("SHA3-256");
+            long keyLength = key.length;
+            sha3_256.update(ByteBuffer.allocate(8).putLong(keyLength).array());
+            sha3_256.update(key);
+            sha3_256.update(data);
+            return sha3_256.digest();
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static byte[] hmac(byte[] key, byte[] data) {
