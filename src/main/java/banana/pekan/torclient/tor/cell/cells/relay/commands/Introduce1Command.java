@@ -16,6 +16,7 @@ import java.nio.ByteOrder;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
+import java.util.Random;
 
 public class Introduce1Command extends RelayCell {
 
@@ -32,7 +33,7 @@ public class Introduce1Command extends RelayCell {
         this.temporaryKeyPair = Cryptography.generateX25519KeyPair();
     }
 
-    private byte[] getPlaintext() {
+    private byte[] getPlaintext(int headerSize) {
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         //      RENDEZVOUS_COOKIE                          [20 bytes]
         stream.writeBytes(rendezvousCookie);
@@ -57,7 +58,11 @@ public class Introduce1Command extends RelayCell {
         //          LSPEC  (Link specifier)                [LSLEN bytes]
         stream.writeBytes(rendezvousPoint.createLinkSpecifiers());
         //      PAD        (optional padding)              [up to end of plaintext]
-        stream.writeBytes(new byte[32]);
+        int sizeTakenUp = headerSize + 64; // headerSize + overhead -> we need to add some overhead because the encryption can enlarge the final size.
+        int relayDataMax = 490;
+        int paddingSize = relayDataMax - sizeTakenUp;
+        int padding = paddingSize - stream.size();
+        stream.writeBytes(new byte[padding]);
 
         return stream.toByteArray();
     }
@@ -96,7 +101,7 @@ public class Introduce1Command extends RelayCell {
         return new byte[][]{ encKey, macKey };
     }
 
-    private byte[][] createEncrypted(byte[] B, byte[] authKey, byte[] subcredential) {
+    private byte[][] createEncrypted(byte[] B, byte[] authKey, byte[] subcredential, int headerSize) {
         byte[][] hsKeys = kdf(B, authKey, subcredential);
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         //   and sends, as the ENCRYPTED part of the INTRODUCE1 message:
@@ -105,7 +110,7 @@ public class Introduce1Command extends RelayCell {
         stream.writeBytes(((X25519PublicKeyParameters) temporaryKeyPair.getPublic()).getEncoded());
         //          ENCRYPTED_DATA           [Padded to length of plaintext]
         Cipher encKey = Cryptography.createAesKey(Cipher.ENCRYPT_MODE, hsKeys[0]);
-        stream.writeBytes(encKey.update(getPlaintext()));
+        stream.writeBytes(encKey.update(getPlaintext(headerSize)));
 
         return new byte[][]{ stream.toByteArray(), hsKeys[1]};
     }
@@ -130,7 +135,7 @@ public class Introduce1Command extends RelayCell {
         //       EXT_FIELD      [EXT_FIELD_LEN bytes]
         stream.write(0);
         //     ENCRYPTED        [Up to end of relay message body]
-        byte[][] encrypted = createEncrypted((byte[]) introductionRelay.extra()[1], authKey, (byte[]) introductionRelay.extra()[2]);
+        byte[][] encrypted = createEncrypted((byte[]) introductionRelay.extra()[1], authKey, (byte[]) introductionRelay.extra()[2], stream.size());
         stream.writeBytes(encrypted[0]);
         //          MAC                      [MAC_LEN bytes]
         byte[] macKey = encrypted[1];
