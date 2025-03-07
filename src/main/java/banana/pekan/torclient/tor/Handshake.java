@@ -9,6 +9,7 @@ import org.bouncycastle.crypto.params.X25519PublicKeyParameters;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -51,7 +52,7 @@ public class Handshake {
         try {
             MessageDigest sha3_256 = MessageDigest.getInstance("SHA3-256");
             long keyLength = key.length;
-            sha3_256.update(ByteBuffer.allocate(8).putLong(keyLength).array());
+            sha3_256.update(ByteBuffer.allocate(8).order(ByteOrder.BIG_ENDIAN).putLong(keyLength).array());
             sha3_256.update(key);
             sha3_256.update(data);
             return sha3_256.digest();

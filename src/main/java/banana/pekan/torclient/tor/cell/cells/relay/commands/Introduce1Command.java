@@ -10,9 +10,12 @@ import org.bouncycastle.crypto.params.X25519PrivateKeyParameters;
 import org.bouncycastle.crypto.params.X25519PublicKeyParameters;
 
 import javax.crypto.Cipher;
+import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
-
-import static banana.pekan.torclient.tor.Handshake.HS_NTOR_PROTOID;
+import java.nio.ByteOrder;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 
 public class Introduce1Command extends RelayCell {
 
@@ -29,112 +32,115 @@ public class Introduce1Command extends RelayCell {
         this.temporaryKeyPair = Cryptography.generateX25519KeyPair();
     }
 
-    private byte[] getPlaintextData() {
+    private byte[] getPlaintext() {
+        ByteArrayOutputStream stream = new ByteArrayOutputStream();
         //      RENDEZVOUS_COOKIE                          [20 bytes]
+        stream.writeBytes(rendezvousCookie);
         //      N_EXTENSIONS                               [1 byte]
         //      N_EXTENSIONS times:
         //          EXT_FIELD_TYPE                         [1 byte]
         //          EXT_FIELD_LEN                          [1 byte]
         //          EXT_FIELD                              [EXT_FIELD_LEN bytes]
+        stream.write(0);
         //      ONION_KEY_TYPE                             [1 bytes]
-        //      ONION_KEY_LEN                              [2 bytes] (Technically 32)
+        stream.write(1);
+        //      ONION_KEY_LEN                              [2 bytes]
+        stream.write(0);
+        stream.write(32);
         //      ONION_KEY                                  [ONION_KEY_LEN bytes]
+        stream.writeBytes(rendezvousPoint.ntorOnionKey());
         //      NSPEC      (Number of link specifiers)     [1 byte]
+        stream.write(rendezvousPoint.getLinkSpecifierCount());
         //      NSPEC times:
         //          LSTYPE (Link specifier type)           [1 byte]
         //          LSLEN  (Link specifier length)         [1 byte]
         //          LSPEC  (Link specifier)                [LSLEN bytes]
+        stream.writeBytes(rendezvousPoint.createLinkSpecifiers());
         //      PAD        (optional padding)              [up to end of plaintext]
+        stream.writeBytes(new byte[32]);
 
-        byte[] linkSpecifiers = rendezvousPoint.createLinkSpecifiers();
-
-        int size = rendezvousCookie.length + 37 + linkSpecifiers.length;
-        ByteBuffer plaintext = ByteBuffer.allocate(size);
-        plaintext.put(rendezvousCookie);
-        plaintext.put((byte) 0);
-        plaintext.put((byte) 0x01);
-        plaintext.putShort((short) 32);
-        plaintext.put(rendezvousPoint.ntorOnionKey());
-
-        plaintext.put(rendezvousPoint.getLinkSpecifierCount());
-        plaintext.put(linkSpecifiers);
-
-        return plaintext.array();
+        return stream.toByteArray();
     }
 
-    private ByteBuffer createEncryptedField(byte[] hsNtorOnionKey, byte[] authKey, byte[] subcredential, ByteBuffer introData) {
+    static String PROTOID = "tor-hs-ntor-curve25519-sha3-256-1";
+    //      t_hsenc    = PROTOID | ":hs_key_extract"
+    static String PROTOID_EXTRACT = PROTOID + ":hs_key_extract";
+    //      m_hsexpand = PROTOID | ":hs_key_expand"
+    static String PROTOID_EXPAND = PROTOID + ":hs_key_expand";
+
+    private byte[][] kdf(byte[] B, byte[] authKey, byte[] subcredential) {
+        //             intro_secret_hs_input = EXP(B,x) | AUTH_KEY | X | B | PROTOID
+        ByteArrayOutputStream introSecretHsInput = new ByteArrayOutputStream();
+        introSecretHsInput.writeBytes(Handshake.calculateSharedSecret((X25519PrivateKeyParameters) temporaryKeyPair.getPrivate(), new X25519PublicKeyParameters(B)));
+        introSecretHsInput.writeBytes(authKey);
+        introSecretHsInput.writeBytes(((X25519PublicKeyParameters) temporaryKeyPair.getPublic()).getEncoded());
+        introSecretHsInput.writeBytes(B);
+        introSecretHsInput.writeBytes(PROTOID.getBytes());
+        //             hs_keys = SHAKE256_KDF(intro_secret_hs_input | t_hsenc | info, S_KEY_LEN+MAC_LEN)
+        introSecretHsInput.writeBytes(PROTOID_EXTRACT.getBytes());
+        //             info = m_hsexpand | N_hs_subcred
+        introSecretHsInput.writeBytes(PROTOID_EXPAND.getBytes());
+        introSecretHsInput.writeBytes(subcredential);
+
+        byte[] hsKeys = new byte[Cryptography.CIPHER_KEY_LENGTH + Cryptography.MAC_KEY_LENGTH];
+        SHAKEDigest shakeDigest = new SHAKEDigest(256);
+        shakeDigest.update(introSecretHsInput.toByteArray(), 0, introSecretHsInput.size());
+        shakeDigest.doOutput(hsKeys, 0, hsKeys.length);
+        //             ENC_KEY = hs_keys[0:S_KEY_LEN]
+        byte[] encKey = new byte[Cryptography.CIPHER_KEY_LENGTH];
+        System.arraycopy(hsKeys, 0, encKey, 0, encKey.length);
+        //             MAC_KEY = hs_keys[S_KEY_LEN:S_KEY_LEN+MAC_KEY_LEN]
+        byte[] macKey = new byte[Cryptography.CIPHER_KEY_LENGTH];
+        System.arraycopy(hsKeys, encKey.length, macKey, 0, macKey.length);
+
+        return new byte[][]{ encKey, macKey };
+    }
+
+    private byte[][] createEncrypted(byte[] B, byte[] authKey, byte[] subcredential) {
+        byte[][] hsKeys = kdf(B, authKey, subcredential);
+        ByteArrayOutputStream stream = new ByteArrayOutputStream();
         //   and sends, as the ENCRYPTED part of the INTRODUCE1 message:
         //
         //          CLIENT_PK                [PK_PUBKEY_LEN bytes]
+        stream.writeBytes(((X25519PublicKeyParameters) temporaryKeyPair.getPublic()).getEncoded());
         //          ENCRYPTED_DATA           [Padded to length of plaintext]
-        //          MAC                      [MAC_LEN bytes]
-        byte[] m_hsexpand = ByteBuffer.allocate(HS_NTOR_PROTOID.length + ":hs_key_expand".length()).put(HS_NTOR_PROTOID).put(":hs_key_expand".getBytes()).array();
-        byte[] t_hsenc = ByteBuffer.allocate(HS_NTOR_PROTOID.length + ":hs_key_extract".length()).put(HS_NTOR_PROTOID).put(":hs_key_extract".getBytes()).array();
-        //      t_hsverify = PROTOID | ":hs_verify"
-        //      t_hsmac    = PROTOID | ":hs_mac"
-        byte[] publicKey = ((X25519PublicKeyParameters) temporaryKeyPair.getPublic()).getEncoded();
-        // intro_secret_hs_input = EXP(B,x) | AUTH_KEY | X | B | PROTOID
-        ByteBuffer introSecretHsInputBuffer = ByteBuffer.allocate(32 + authKey.length + publicKey.length + hsNtorOnionKey.length + HS_NTOR_PROTOID.length);
-        introSecretHsInputBuffer.put(Handshake.calculateSharedSecret((X25519PrivateKeyParameters) temporaryKeyPair.getPrivate(), new X25519PublicKeyParameters(hsNtorOnionKey)));
-        introSecretHsInputBuffer.put(authKey);
-        introSecretHsInputBuffer.put(publicKey);
-        introSecretHsInputBuffer.put(hsNtorOnionKey);
-        introSecretHsInputBuffer.put(HS_NTOR_PROTOID);
-        byte[] introSecretHsInput = introSecretHsInputBuffer.array();
+        Cipher encKey = Cryptography.createAesKey(Cipher.ENCRYPT_MODE, hsKeys[0]);
+        stream.writeBytes(encKey.update(getPlaintext()));
 
-        // info = m_hsexpand | N_hs_subcred
-        byte[] info = ByteBuffer.allocate(subcredential.length + m_hsexpand.length).put(m_hsexpand).put(subcredential).array();
-        // hs_keys = SHAKE256_KDF(intro_secret_hs_input | t_hsenc | info, S_KEY_LEN+MAC_LEN)
-        SHAKEDigest shakeDigest = new SHAKEDigest(256);
-        shakeDigest.update(introSecretHsInput, 0, introSecretHsInput.length);
-        shakeDigest.update(t_hsenc, 0, t_hsenc.length);
-        shakeDigest.update(info, 0, info.length);
-        byte[] hsKeys = new byte[Cryptography.CIPHER_KEY_LENGTH + Cryptography.MAC_KEY_LENGTH];
-        shakeDigest.doOutput(hsKeys, 0, hsKeys.length);
-
-        // ENC_KEY = hs_keys[0:S_KEY_LEN]
-        byte[] encryptionKey = new byte[Cryptography.CIPHER_KEY_LENGTH];
-        System.arraycopy(hsKeys, 0, encryptionKey, 0, encryptionKey.length);
-        // MAC_KEY = hs_keys[S_KEY_LEN:S_KEY_LEN+MAC_KEY_LEN]
-        byte[] macKey = new byte[Cryptography.MAC_KEY_LENGTH];
-        System.arraycopy(hsKeys, Cryptography.CIPHER_KEY_LENGTH, macKey, 0, macKey.length);
-
-        byte[] plaintext = getPlaintextData();
-        Cipher key = Cryptography.createAesKey(Cipher.ENCRYPT_MODE, encryptionKey);
-        byte[] encrypted = key.update(plaintext);
-
-        introData.put(publicKey);
-        introData.put(encrypted);
-
-        byte[] mac = Handshake.hsMac(macKey, introData.array());
-        introData.put(mac);
-
-        return introData;
+        return new byte[][]{ stream.toByteArray(), hsKeys[1]};
     }
 
     @Override
     protected byte[] getRelayBody() {
-        //     LEGACY_KEY_ID   [20 bytes] (all zeroes in the new format)
+        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+        //     LEGACY_KEY_ID   [20 bytes]
+        stream.writeBytes(new byte[20]);
         //     AUTH_KEY_TYPE   [1 byte]
+        stream.write(2);
         //     AUTH_KEY_LEN    [2 bytes]
+        byte[] authKey = (byte[]) introductionRelay.extra()[0];
+        stream.write(authKey.length >> 8);
+        stream.write(authKey.length & 0xFF);
         //     AUTH_KEY        [AUTH_KEY_LEN bytes]
+        stream.writeBytes(authKey);
         //     N_EXTENSIONS    [1 byte]
         //     N_EXTENSIONS times:
         //       EXT_FIELD_TYPE [1 byte]
         //       EXT_FIELD_LEN  [1 byte]
         //       EXT_FIELD      [EXT_FIELD_LEN bytes]
+        stream.write(0);
         //     ENCRYPTED        [Up to end of relay message body]
-        ByteBuffer buffer = ByteBuffer.allocate(490);
-        buffer.put(new byte[20]);
-        buffer.put((byte) 0x02);
-        byte[] authKey = (byte[]) introductionRelay.extra()[0];
-        buffer.putShort((short) authKey.length);
-        buffer.put(authKey);
-        buffer.put((byte) 0);
+        byte[][] encrypted = createEncrypted((byte[]) introductionRelay.extra()[1], authKey, (byte[]) introductionRelay.extra()[2]);
+        stream.writeBytes(encrypted[0]);
+        //          MAC                      [MAC_LEN bytes]
+        byte[] macKey = encrypted[1];
+        byte[] output = stream.toByteArray();
+        byte[] mac = Handshake.hsMac(macKey, output);
 
-        byte[] hsNtorOnionKey = (byte[]) introductionRelay.extra()[1];
-        byte[] subcredential = (byte[]) introductionRelay.extra()[2];
+        ByteBuffer buffer = ByteBuffer.allocate(output.length + mac.length);
+        buffer.put(output);
+        buffer.put(mac);
 
-        return createEncryptedField(hsNtorOnionKey, authKey, subcredential, buffer).array();
+        return buffer.array();
     }
 }

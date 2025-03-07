@@ -376,7 +376,9 @@ public class Directory extends Guard {
             ipv6host = Inet6Address.getByName(ipv6.split("]:")[0]).getAddress();
         }
 
-        return new RelayProperties(info[0], info[1], Integer.parseInt(info[2]), fingerprint, ntorOnionKey, ipv6host, ipv6port);
+        byte[] ed25519Id = Base64.getDecoder().decode(descriptor.split("\nmaster-key-ed25519 ")[1].split("\n")[0].strip());
+
+        return new RelayProperties(info[0], info[1], Integer.parseInt(info[2]), fingerprint, ntorOnionKey, ed25519Id, ipv6host, ipv6port);
     }
 
 }

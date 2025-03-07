@@ -7,12 +7,12 @@ import java.util.Arrays;
 
 public record RelayProperties(String nickname, String host, int port, byte[] fingerprint, byte[] ntorOnionKey, byte[] ed25519Key, byte[] ipv6host, int ipv6port, Object[] extra) {
 
-    RelayProperties(String nickname, String host, int port, byte[] fingerprint, byte[] ntorOnionKey, byte[] ipv6host, int ipv6port) {
-        this(nickname, host, port, fingerprint, ntorOnionKey, null, ipv6host, ipv6port, null);
+    RelayProperties(String nickname, String host, int port, byte[] fingerprint, byte[] ntorOnionKey, byte[] ed25519Key, byte[] ipv6host, int ipv6port) {
+        this(nickname, host, port, fingerprint, ntorOnionKey, ed25519Key, ipv6host, ipv6port, null);
     }
 
     public byte[] createLinkSpecifiers() {
-        int size = 8 + (ipv6host != null ? 18 : 0) + 22 + (ed25519Key != null ? 34 : 0);
+        int size = 8 + (ipv6host != null ? 20 : 0) + 22 + (ed25519Key != null ? 34 : 0);
         ByteBuffer buffer = ByteBuffer.allocate(size);
         buffer.put(createIpv4LinkSpecifier(host, port));
         if (ipv6host != null)
@@ -20,6 +20,7 @@ public record RelayProperties(String nickname, String host, int port, byte[] fin
         buffer.put(createFingerprintLinkSpecifier(fingerprint));
         if (ed25519Key != null)
             buffer.put(createEd25519IdLinkSpecifier(ed25519Key));
+
         return buffer.array();
     }
 

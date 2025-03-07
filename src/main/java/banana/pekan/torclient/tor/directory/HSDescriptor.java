@@ -104,8 +104,7 @@ public class HSDescriptor {
                     if (authKeyCert == null) throw new RuntimeException("Couldn't parse the HiddenService's introduction point auth key certificate.");
 
                     EdCertificate certificate = EdCertificate.parseEd25519Cert(authKeyCert.toString());
-                    EdCertificate.Extension extension = certificate.extensions()[0];
-                    byte[] authKey = extension.data();
+                    byte[] authKey = certificate.certKey();
 
                     byte[] hsNtorOnionKey = Base64.getDecoder().decode(lines[i].split("enc-key ntor ")[1]);
 

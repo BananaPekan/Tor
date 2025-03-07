@@ -1,6 +1,7 @@
 package banana.pekan.torclient.tor;
 
 import banana.pekan.torclient.tor.cell.Cell;
+import banana.pekan.torclient.tor.cell.cells.DestroyCell;
 import banana.pekan.torclient.tor.cell.cells.relay.RelayCell;
 import banana.pekan.torclient.tor.cell.cells.relay.commands.*;
 import banana.pekan.torclient.tor.crypto.Cryptography;
@@ -210,6 +211,7 @@ public class Circuit {
     }
 
     public void close() {
+        sendCell(new DestroyCell(circuitId, getProtocolVersion(), (byte) 0));
         isActive = false;
     }
 
