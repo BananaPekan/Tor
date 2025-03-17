@@ -16,6 +16,7 @@ public class Cryptography {
 
     public static MessageDigest SHA1;
     public static byte SHA1_LENGTH = 20;
+    public static byte SHA3_256_LENGTH = 32;
     public static byte KEY_LENGTH = 16;
     public static byte CIPHER_KEY_LENGTH = 32;
     public static byte MAC_KEY_LENGTH = 32;

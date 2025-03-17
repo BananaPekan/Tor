@@ -37,6 +37,7 @@ public abstract class RelayCell extends Cell {
     public static final byte ESTABLISH_RENDEZVOUS = 33;
     public static final byte RENDEZVOUS_ESTABLISHED = 39;
     public static final byte INTRODUCE_ACK = 40;
+    public static final byte RENDEZVOUS2 = 37;
     public static final byte ANY = -1;
 
     byte relayCommand;
@@ -106,13 +107,14 @@ public abstract class RelayCell extends Cell {
                 return new DataCommand(circuitId, version, streamId, body);
             case END:
                 return new EndCommand(circuitId, version, streamId, body[0]);
-            case EXTENDED2:
+            case EXTENDED2: {
                 short hlen = (short) ((body[0] << 8) | body[1]); // constant (64);
                 byte[] publicKey = new byte[32];
                 byte[] auth = new byte[32];
                 System.arraycopy(body, 2, publicKey, 0, publicKey.length);
                 System.arraycopy(body, 34, auth, 0, auth.length);
                 return new Extended2Command(circuitId, version, streamId, publicKey, auth);
+            }
             case SEND_ME:
                 if (streamId == 0) {
                     ByteBuffer sendMe = ByteBuffer.wrap(body);
@@ -141,6 +143,12 @@ public abstract class RelayCell extends Cell {
                 }
 
                 return new IntroduceAckCommand(circuitId, version, status, extensions);
+            case RENDEZVOUS2:
+                byte[] publicKey = new byte[32];
+                byte[] auth = new byte[32];
+                System.arraycopy(body, 0, publicKey, 0, publicKey.length);
+                System.arraycopy(body, 32, auth, 0, auth.length);
+                return new Rendezvous2Command(circuitId, version, publicKey, auth);
             default:
                 throw new Error("Encountered an unknown relay command: " + command);
         }

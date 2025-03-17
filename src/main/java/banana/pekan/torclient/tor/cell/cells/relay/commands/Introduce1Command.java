@@ -12,11 +12,9 @@ import org.bouncycastle.crypto.params.X25519PublicKeyParameters;
 import javax.crypto.Cipher;
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
-import java.util.Random;
+
+import static banana.pekan.torclient.tor.Handshake.*;
 
 public class Introduce1Command extends RelayCell {
 
@@ -31,6 +29,10 @@ public class Introduce1Command extends RelayCell {
         this.rendezvousCookie = rendezvousCookie;
         this.rendezvousPoint = rendezvousPoint;
         this.temporaryKeyPair = Cryptography.generateX25519KeyPair();
+    }
+
+    public byte[] getRendezvousCookie() {
+        return rendezvousCookie;
     }
 
     private byte[] getPlaintext(int headerSize) {
@@ -67,12 +69,6 @@ public class Introduce1Command extends RelayCell {
         return stream.toByteArray();
     }
 
-    static String PROTOID = "tor-hs-ntor-curve25519-sha3-256-1";
-    //      t_hsenc    = PROTOID | ":hs_key_extract"
-    static String PROTOID_EXTRACT = PROTOID + ":hs_key_extract";
-    //      m_hsexpand = PROTOID | ":hs_key_expand"
-    static String PROTOID_EXPAND = PROTOID + ":hs_key_expand";
-
     private byte[][] kdf(byte[] B, byte[] authKey, byte[] subcredential) {
         //             intro_secret_hs_input = EXP(B,x) | AUTH_KEY | X | B | PROTOID
         ByteArrayOutputStream introSecretHsInput = new ByteArrayOutputStream();
@@ -80,11 +76,11 @@ public class Introduce1Command extends RelayCell {
         introSecretHsInput.writeBytes(authKey);
         introSecretHsInput.writeBytes(((X25519PublicKeyParameters) temporaryKeyPair.getPublic()).getEncoded());
         introSecretHsInput.writeBytes(B);
-        introSecretHsInput.writeBytes(PROTOID.getBytes());
+        introSecretHsInput.writeBytes(HS_NTOR_PROTOID.getBytes());
         //             hs_keys = SHAKE256_KDF(intro_secret_hs_input | t_hsenc | info, S_KEY_LEN+MAC_LEN)
-        introSecretHsInput.writeBytes(PROTOID_EXTRACT.getBytes());
+        introSecretHsInput.writeBytes(PROTOID_HS_EXTRACT.getBytes());
         //             info = m_hsexpand | N_hs_subcred
-        introSecretHsInput.writeBytes(PROTOID_EXPAND.getBytes());
+        introSecretHsInput.writeBytes(PROTOID_HS_EXPAND.getBytes());
         introSecretHsInput.writeBytes(subcredential);
 
         byte[] hsKeys = new byte[Cryptography.CIPHER_KEY_LENGTH + Cryptography.MAC_KEY_LENGTH];
@@ -112,7 +108,21 @@ public class Introduce1Command extends RelayCell {
         Cipher encKey = Cryptography.createAesKey(Cipher.ENCRYPT_MODE, hsKeys[0]);
         stream.writeBytes(encKey.update(getPlaintext(headerSize)));
 
+        System.out.println("Public key: " + Arrays.toString(((X25519PublicKeyParameters) temporaryKeyPair.getPublic()).getEncoded()));
+
         return new byte[][]{ stream.toByteArray(), hsKeys[1]};
+    }
+
+    public byte[] getHsNtorOnionKey() {
+        return (byte[]) introductionRelay.extra()[1];
+    }
+
+    public byte[] getAuthKey() {
+        return (byte[]) introductionRelay.extra()[0];
+    }
+
+    public AsymmetricCipherKeyPair getTemporaryKeyPair() {
+        return temporaryKeyPair;
     }
 
     @Override
@@ -145,7 +155,7 @@ public class Introduce1Command extends RelayCell {
         ByteBuffer buffer = ByteBuffer.allocate(output.length + mac.length);
         buffer.put(output);
         buffer.put(mac);
-
+        
         return buffer.array();
     }
 }

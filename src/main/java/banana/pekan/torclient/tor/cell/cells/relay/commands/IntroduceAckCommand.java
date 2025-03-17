@@ -24,6 +24,7 @@ public class IntroduceAckCommand extends RelayCell {
         //     [00 03] -- Can't relay message to service
         this.status = status;
         this.extensions = extensions;
+        System.out.println(extensions.length);
     }
 
     public short getStatus() {

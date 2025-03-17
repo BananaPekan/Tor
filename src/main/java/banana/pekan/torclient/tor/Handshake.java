@@ -8,6 +8,7 @@ import org.bouncycastle.crypto.params.X25519PublicKeyParameters;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.security.InvalidKeyException;
@@ -21,7 +22,15 @@ import static banana.pekan.torclient.tor.crypto.Cryptography.SHA1_LENGTH;
 public class Handshake {
 
     public static final byte[] NTOR_PROTOID = "ntor-curve25519-sha256-1".getBytes();
-    public static final byte[] HS_NTOR_PROTOID = "tor-hs-ntor-curve25519-sha3-256-1".getBytes();
+    public static final String HS_NTOR_PROTOID = "tor-hs-ntor-curve25519-sha3-256-1";
+    //      t_hsenc    = PROTOID | ":hs_key_extract"
+    public static String PROTOID_HS_EXTRACT = HS_NTOR_PROTOID + ":hs_key_extract";
+    //      m_hsexpand = PROTOID | ":hs_key_expand"
+    public static String PROTOID_HS_EXPAND = HS_NTOR_PROTOID + ":hs_key_expand";
+    //      t_hsverify = PROTOID | ":hs_verify"
+    public static String PROTOID_HS_VERIFY = HS_NTOR_PROTOID + ":hs_verify";
+    //      t_hsmac    = PROTOID | ":hs_mac"
+    public static String PROTOID_HS_MAC = HS_NTOR_PROTOID + ":hs_mac";
 
     private static byte[] createNtorHandshake(RelayProperties properties, X25519PublicKeyParameters publicKey) {
         ByteBuffer buffer = ByteBuffer.allocate(84);
@@ -126,6 +135,54 @@ public class Handshake {
         if (!Arrays.equals(authVerify, auth)) return null;
         byte[] keySeed = hmac((new String(NTOR_PROTOID) + ":key_extract").getBytes(), secretInput.array());
         return deriveNtorKeys(keySeed);
+    }
+
+//    private static Keys deriveHsNtorKeys(byte[] keySeed) {
+//        // K = KDF(NTOR_KEY_SEED | m_hsexpand,    SHA3_256_LEN *2 + S_KEY_LEN* 2)
+//        SHAKEDigest shakeDigest = new SHAKEDigest(256);
+//        byte[] material = new byte[keySeed.length + PROTOID_HS_EXPAND.length()];
+//        System.arraycopy(keySeed, 0, material, 0, keySeed.length);
+//        System.arraycopy(PROTOID_HS_EXPAND.getBytes(), 0, material, keySeed.length, PROTOID_HS_EXPAND.length());
+//        shakeDigest.update(material, 0, material.length);
+//
+//        byte[] digestForward = new byte[SHA3_256_LENGTH];
+//        byte[] digestBackward = new byte[SHA3_256_LENGTH];
+//        byte[] encryptForward = new byte[CIPHER_KEY_LENGTH];
+//        byte[] decryptBackward = new byte[CIPHER_KEY_LENGTH];
+//        shakeDigest.doOutput(digestForward, 0, digestForward.length);
+//        shakeDigest.doOutput(digestBackward, 0, digestBackward.length);
+//        shakeDigest.doOutput(encryptForward, 0, encryptForward.length);
+//        shakeDigest.doOutput(decryptBackward, 0, decryptBackward.length);
+//
+//        return new Keys(digestForward, digestBackward, encryptForward, decryptBackward, null);
+//    }
+
+    public static boolean finishRendNtorHandshake(AsymmetricCipherKeyPair keyPair, X25519PublicKeyParameters Y, byte[] onionKey, byte[] authKey, byte[] macAuth) {
+        //      rend_secret_hs_input = EXP(Y,x) | EXP(B,x) | AUTH_KEY | B | X | Y | PROTOID
+        ByteArrayOutputStream secretInput = new ByteArrayOutputStream();
+        secretInput.writeBytes(calculateSharedSecret((X25519PrivateKeyParameters) keyPair.getPrivate(), Y));
+        secretInput.writeBytes(calculateSharedSecret((X25519PrivateKeyParameters) keyPair.getPrivate(), new X25519PublicKeyParameters(onionKey)));
+        secretInput.writeBytes(authKey);
+        secretInput.writeBytes(onionKey);
+        secretInput.writeBytes(((X25519PublicKeyParameters) keyPair.getPublic()).getEncoded());
+        secretInput.writeBytes(Y.getEncoded());
+        secretInput.writeBytes(HS_NTOR_PROTOID.getBytes());
+        //      NTOR_KEY_SEED = MAC(ntor_secret_input, t_hsenc)
+        byte[] keySeed = hsMac(secretInput.toByteArray(), PROTOID_HS_EXTRACT.getBytes());
+        //      verify = MAC(ntor_secret_input, t_hsverify)
+        byte[] verify = hsMac(secretInput.toByteArray(), PROTOID_HS_VERIFY.getBytes());
+        //      auth_input = verify | AUTH_KEY | B | Y | X | PROTOID | "Server"
+        ByteArrayOutputStream authInput = new ByteArrayOutputStream();
+        authInput.writeBytes(verify);
+        authInput.writeBytes(authKey);
+        authInput.writeBytes(onionKey);
+        authInput.writeBytes(Y.getEncoded());
+        authInput.writeBytes(((X25519PublicKeyParameters) keyPair.getPublic()).getEncoded());
+        authInput.writeBytes(HS_NTOR_PROTOID.getBytes());
+        authInput.writeBytes("Server".getBytes());
+        //      AUTH_INPUT_MAC = MAC(auth_input, t_hsmac)
+        byte[] authInputMac = hsMac(authInput.toByteArray(), PROTOID_HS_MAC.getBytes());
+        return Arrays.equals(authInputMac, macAuth);
     }
 
 }
