@@ -3,6 +3,7 @@ package banana.pekan.torclient.tor;
 import banana.pekan.torclient.tor.crypto.Keys;
 import banana.pekan.torclient.tor.directory.RelayProperties;
 import org.bouncycastle.crypto.AsymmetricCipherKeyPair;
+import org.bouncycastle.crypto.digests.SHAKEDigest;
 import org.bouncycastle.crypto.params.X25519PrivateKeyParameters;
 import org.bouncycastle.crypto.params.X25519PublicKeyParameters;
 
@@ -16,8 +17,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
-import static banana.pekan.torclient.tor.crypto.Cryptography.KEY_LENGTH;
-import static banana.pekan.torclient.tor.crypto.Cryptography.SHA1_LENGTH;
+import static banana.pekan.torclient.tor.crypto.Cryptography.*;
 
 public class Handshake {
 
@@ -137,27 +137,27 @@ public class Handshake {
         return deriveNtorKeys(keySeed);
     }
 
-//    private static Keys deriveHsNtorKeys(byte[] keySeed) {
-//        // K = KDF(NTOR_KEY_SEED | m_hsexpand,    SHA3_256_LEN *2 + S_KEY_LEN* 2)
-//        SHAKEDigest shakeDigest = new SHAKEDigest(256);
-//        byte[] material = new byte[keySeed.length + PROTOID_HS_EXPAND.length()];
-//        System.arraycopy(keySeed, 0, material, 0, keySeed.length);
-//        System.arraycopy(PROTOID_HS_EXPAND.getBytes(), 0, material, keySeed.length, PROTOID_HS_EXPAND.length());
-//        shakeDigest.update(material, 0, material.length);
-//
-//        byte[] digestForward = new byte[SHA3_256_LENGTH];
-//        byte[] digestBackward = new byte[SHA3_256_LENGTH];
-//        byte[] encryptForward = new byte[CIPHER_KEY_LENGTH];
-//        byte[] decryptBackward = new byte[CIPHER_KEY_LENGTH];
-//        shakeDigest.doOutput(digestForward, 0, digestForward.length);
-//        shakeDigest.doOutput(digestBackward, 0, digestBackward.length);
-//        shakeDigest.doOutput(encryptForward, 0, encryptForward.length);
-//        shakeDigest.doOutput(decryptBackward, 0, decryptBackward.length);
-//
-//        return new Keys(digestForward, digestBackward, encryptForward, decryptBackward, null);
-//    }
+    private static Keys deriveHsNtorKeys(byte[] keySeed) {
+        // K = KDF(NTOR_KEY_SEED | m_hsexpand,    SHA3_256_LEN *2 + S_KEY_LEN* 2)
+        SHAKEDigest shakeDigest = new SHAKEDigest(256);
+        byte[] material = new byte[keySeed.length + PROTOID_HS_EXPAND.length()];
+        System.arraycopy(keySeed, 0, material, 0, keySeed.length);
+        System.arraycopy(PROTOID_HS_EXPAND.getBytes(), 0, material, keySeed.length, PROTOID_HS_EXPAND.length());
+        shakeDigest.update(material, 0, material.length);
 
-    public static boolean finishRendNtorHandshake(AsymmetricCipherKeyPair keyPair, X25519PublicKeyParameters Y, byte[] onionKey, byte[] authKey, byte[] macAuth) {
+        byte[] digestForward = new byte[SHA3_256_LENGTH];
+        byte[] digestBackward = new byte[SHA3_256_LENGTH];
+        byte[] encryptForward = new byte[CIPHER_KEY_LENGTH];
+        byte[] decryptBackward = new byte[CIPHER_KEY_LENGTH];
+        shakeDigest.doOutput(digestForward, 0, digestForward.length);
+        shakeDigest.doOutput(digestBackward, 0, digestBackward.length);
+        shakeDigest.doOutput(encryptForward, 0, encryptForward.length);
+        shakeDigest.doOutput(decryptBackward, 0, decryptBackward.length);
+
+        return new Keys(digestForward, digestBackward, encryptForward, decryptBackward, null, true);
+    }
+
+    public static Keys finishRendNtorHandshake(AsymmetricCipherKeyPair keyPair, X25519PublicKeyParameters Y, byte[] onionKey, byte[] authKey, byte[] macAuth) {
         //      rend_secret_hs_input = EXP(Y,x) | EXP(B,x) | AUTH_KEY | B | X | Y | PROTOID
         ByteArrayOutputStream secretInput = new ByteArrayOutputStream();
         secretInput.writeBytes(calculateSharedSecret((X25519PrivateKeyParameters) keyPair.getPrivate(), Y));
@@ -182,7 +182,8 @@ public class Handshake {
         authInput.writeBytes("Server".getBytes());
         //      AUTH_INPUT_MAC = MAC(auth_input, t_hsmac)
         byte[] authInputMac = hsMac(authInput.toByteArray(), PROTOID_HS_MAC.getBytes());
-        return Arrays.equals(authInputMac, macAuth);
+
+        return Arrays.equals(authInputMac, macAuth) ? deriveHsNtorKeys(keySeed) : null;
     }
 
 }

@@ -59,6 +59,16 @@ public class Cryptography {
         }
     }
 
+    public static MessageDigest createHsDigest(byte[] init) {
+        try {
+            MessageDigest sha3256 = MessageDigest.getInstance("SHA3-256");
+            sha3256.update(init);
+            return sha3256;
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public static MessageDigest createDigest(byte[] init) {
         try {
             MessageDigest sha1 = MessageDigest.getInstance("SHA-1");

@@ -11,6 +11,10 @@ public record RelayProperties(String nickname, String host, int port, byte[] fin
         this(nickname, host, port, fingerprint, ntorOnionKey, ed25519Key, ipv6host, ipv6port, null);
     }
 
+    public static RelayProperties nullProperties() {
+        return new RelayProperties(null, "", -1, null, null, null, null, -1);
+    }
+
     public byte[] createLinkSpecifiers() {
         int size = 8 + (ipv6host != null ? 20 : 0) + 22 + (ed25519Key != null ? 34 : 0);
         ByteBuffer buffer = ByteBuffer.allocate(size);

@@ -27,7 +27,7 @@ public class Relay {
         return keys.get(circuitId);
     }
 
-    public void addKeys(int circuitId, Keys keys) {
+    public void setKeys(int circuitId, Keys keys) {
         this.keys.put(circuitId, keys);
     }
 

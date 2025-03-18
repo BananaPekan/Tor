@@ -19,6 +19,9 @@ Known issues:
 - DESTROY cells may cause unexpected behaviour.
 - There is no tearing down mechanism for circuits, which may result in the client getting stuck when trying to connect to an OR and silently failing, leaving the program hanging.
 
+Note that some exceptions might get thrown, which is not ideal in a client. So they should be removed before the client should be considered functional.
+Although, theoretically most of the exceptions shouldn't ever get thrown if both sides are adhering to the protocol.
+
 Usage example (as of right now):
 
 ```java

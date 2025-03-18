@@ -57,6 +57,10 @@ public class Circuit {
         return guard.getProtocolVersion();
     }
 
+    public void setLastKeys(Keys keys) {
+        relays.getLast().setKeys(circuitId, keys);
+    }
+
     private void updateRelayDigest(byte[] relayPayload) {
         MessageDigest digest = relays.getLast().getKeys(circuitId).digestForward();
         byte[] digestBytes = Cryptography.updateDigest(digest, relayPayload);
@@ -189,7 +193,7 @@ public class Circuit {
 
     public void addRelay(RelayProperties properties, Keys keys) {
         Relay relay = new Relay(properties);
-        relay.addKeys(circuitId, keys);
+        relay.setKeys(circuitId, keys);
         relays.add(relay);
     }
 
