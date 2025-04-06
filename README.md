@@ -19,6 +19,9 @@ Known issues:
 - DESTROY cells may cause unexpected behaviour.
 - There is no tearing down mechanism for circuits, which may result in the client getting stuck when trying to connect to an OR and silently failing, leaving the program hanging.
 
+Although hidden services are technically working, their discovery doesn't and it seems that the reason stems from the BouncyCastle library, which I'm using to handle lots of encryption stuff.
+The maths seem to be off when using the library and there are many inconsistencies and so I might need to find an alternative.
+
 Note that some exceptions might get thrown, which is not ideal in a client. So they should be removed before the client should be considered functional.
 Although, theoretically most of the exceptions shouldn't ever get thrown if both sides are adhering to the protocol.
 
